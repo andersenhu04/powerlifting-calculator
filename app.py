@@ -189,8 +189,8 @@ else:
         # --- THE SPEED FIX: SUBSAMPLING ---
         # If the dataset is massive, grab a random 5,000 rows for the KDE drawing.
         # This stops the server from crashing while keeping the curve looking perfect.
-        if len(clean_data) > 7500:
-            kde_data = clean_data.sample(n=7500, random_state=42)
+        if len(clean_data) > 5000:
+            kde_data = clean_data.sample(n=5000, random_state=42)
         else:
             kde_data = clean_data
             
