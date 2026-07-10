@@ -186,15 +186,25 @@ else:
         if len(clean_data) < 2:
             return None
             
+        # --- THE SPEED FIX: SUBSAMPLING ---
+        # If the dataset is massive, grab a random 5,000 rows for the KDE drawing.
+        # This stops the server from crashing while keeping the curve looking perfect.
+        if len(clean_data) > 7500:
+            kde_data = clean_data.sample(n=7500, random_state=42)
+        else:
+            kde_data = clean_data
+            
         # Determine decimal formatting (2 for DOTS, 1 for Weight)
         decimals = ".2f" if unit_label == "DOTS" else ".1f"
             
-        # Calculate the smooth bell curve (KDE)
-        kde = gaussian_kde(clean_data)
+        # Calculate the smooth bell curve (KDE) using the FASTER sampled data
+        kde = gaussian_kde(kde_data)
+        
+        # Calculate the X-axis spread using the min/max of the FULL data
         x_vals = np.linspace(clean_data.min(), clean_data.max(), 200)
         y_vals = kde(x_vals)
         
-        # Calculate exact percentiles for the hover menu
+        # Calculate exact percentiles for the hover menu using the FULL data (Keeps stats 100% accurate!)
         sorted_data = np.sort(clean_data)
         percentiles = np.searchsorted(sorted_data, x_vals) / len(sorted_data) * 100
         
@@ -209,7 +219,6 @@ else:
             fill='tozeroy',
             opacity=0.5,
             name='Distribution',
-            # Using dynamic formatting for the hover text
             hovertemplate=f"<b>Score/Weight:</b> %{{x:{decimals}}} {unit_label}<br>" +
                           "<b>Ranking:</b> Top %{customdata:.1f}%<extra></extra>",
             customdata=100 - percentiles 
@@ -225,10 +234,10 @@ else:
             y=max(y_vals),
             text=f"You: {user_val:{decimals}} {unit_label}<br>(Top {100-user_percentile:.1f}%)",
             showarrow=False,
-            xanchor="left",   # Anchors the left edge of the text block to your line
-            yanchor="bottom",    # Anchors the top edge of the text to the graph's peak
-            xshift=15,        # Shoves the text exactly 15 pixels to the right
-            yshift=-100,      # Shoves the text exactly 100 pixels down
+            xanchor="left",
+            yanchor="bottom",
+            xshift=15,
+            yshift=-100,
             font=dict(color='white', size=12, family="Arial Black"),
             align="left"
         )
@@ -244,7 +253,7 @@ else:
             xaxis=dict(showgrid=True, gridcolor='lightgrey')
         )
         return fig
-
+    
     # Calculate DOTS for individual lifts if requested
     if metric == "DOTS Score":
         active_unit = "DOTS"
