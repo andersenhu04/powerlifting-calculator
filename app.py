@@ -10,8 +10,8 @@ def load_data():
     cols = ['Sex', 'Equipment', 'BodyweightKg', 'Best3SquatKg', 
             'Best3BenchKg', 'Best3DeadliftKg', 'TotalKg', 'Federation', 'Tested', 'Dots']
     
-    # Read the dataset
-    df = pd.read_csv('C:\\Users\\a_hu2\\OneDrive\\Desktop\\powerlifting-app\\openpowerlifting-2026-07-04-9acfa1cf.csv', usecols=cols, low_memory=False)
+    # Read the compressed Parquet dataset
+    df = pd.read_parquet('powerlifting_data.parquet', columns=cols)
     
     # Drop rows where total or bodyweight is missing
     df = df.dropna(subset=['TotalKg', 'Sex', 'Equipment', 'BodyweightKg'])
