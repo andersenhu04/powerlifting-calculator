@@ -1,12 +1,15 @@
 import pandas as pd
 
-# Load CSV
-# Make sure to adjust the filename if it has changed!
-print("Reading CSV...")
-df = pd.read_csv('openpowerlifting-2026-07-04-9acfa1cf.csv', low_memory=False)
+# Load only the columns we absolutely need
+cols = ['Sex', 'Equipment', 'BodyweightKg', 'Best3SquatKg', 
+        'Best3BenchKg', 'Best3DeadliftKg', 'TotalKg', 'Federation', 'Tested', 'Dots']
 
-# Save as a compressed Parquet file
-print("Saving as Parquet...")
-df.to_parquet('powerlifting_data.parquet', compression='snappy')
+df = pd.read_csv('C:\\Users\\a_hu2\\OneDrive\\Desktop\\powerlifting-app\\openpowerlifting-2026-07-04-9acfa1cf.csv', usecols=cols, low_memory=False)
 
-print("Done! You can now use 'powerlifting_data.parquet' in your app.")
+# Filter for FULL POWER (SBD) competitors only to kill that spike on the left
+df = df.dropna(subset=['TotalKg', 'Sex', 'Equipment', 'BodyweightKg', 
+                       'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg'])
+
+# Save the lightweight version
+df.to_parquet('optimized_data.parquet')
+print(f"Data saved! Row count: {len(df)}")
