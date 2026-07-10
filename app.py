@@ -15,7 +15,7 @@ def load_data():
             'Best3BenchKg', 'Best3DeadliftKg', 'TotalKg', 'Federation', 'Tested', 'Dots']
     
     # Load as a PyArrow Table first
-    table = pq.read_table('powerlifting_data.parquet', columns=cols)
+    table = pq.read_table('optimized_data.parquet', columns=cols)
     
     # Convert to Pandas
     df = table.to_pandas()
