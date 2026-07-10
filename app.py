@@ -14,12 +14,21 @@ def load_data():
     df = pd.read_parquet('powerlifting_data.parquet', columns=cols)
     
     # Drop rows where total, bodyweight, or ANY of the three lifts are missing
-    # This guarantees we are only looking at Full Power (SBD) competitors!
     df = df.dropna(subset=[
         'TotalKg', 'Sex', 'Equipment', 'BodyweightKg', 
         'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg'
     ])
     
+    # --- THE ULTIMATE MEMORY FIX ---
+    # 1. Convert text columns to 'category' (Shrinks text memory by ~85%)
+    for col in ['Sex', 'Equipment', 'Federation', 'Tested']:
+        df[col] = df[col].astype('category')
+        
+    # 2. Downcast 64-bit floats to 32-bit (Shrinks number memory by 50%)
+    float_cols = ['BodyweightKg', 'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg', 'TotalKg', 'Dots']
+    for col in float_cols:
+        df[col] = df[col].astype('float32')
+        
     return df
 
 df = load_data()
