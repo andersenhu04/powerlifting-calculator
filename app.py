@@ -23,22 +23,19 @@ df = load_data()
 st.title("Powerlifting Percentile Calculator")
 st.markdown("Enter your numbers and adjust the filters to see exactly where you rank in powerlifting history.")
 
-# 2. SIDEBAR: UNIT TOGGLE
-st.sidebar.header("1. Your Stats")
-unit = st.sidebar.radio(
-    "Preferred Unit", ["lbs", "kg"],
-    horizontal=True
-)
-is_lbs = unit == "lbs"
-
 # --- ONE MASTER FORM FOR ALL SETTINGS ---
 with st.sidebar.form("main_calculator_form"):
     
+    # 2. UNIT TOGGLE (Now inside the form)
+    st.subheader("1. Your Stats")
+    unit = st.radio("Preferred Unit", ["lbs", "kg"], horizontal=True)
+    is_lbs = unit == "lbs"
+    
     # 3. USER INPUTS
     user_sex = st.selectbox("Sex", ["M", "F", "Mx"]) 
-    user_bw = st.number_input(f"Bodyweight ({unit})", min_value=0.0, value=165.0 if is_lbs else 75.0, step=1.0)
+    user_bw = st.number_input(f"Bodyweight (In preferred unit)", min_value=0.0, value=165.0 if is_lbs else 75.0, step=1.0)
     
-    st.subheader(f"Your 1RMs ({unit})")
+    st.subheader(f"Your 1RMs (In preferred unit)")
     lift_step = 5.0 if is_lbs else 2.5 
     sq = st.number_input(f"Squat", min_value=0.0, value=315.0 if is_lbs else 140.0, step=lift_step) 
     bp = st.number_input(f"Bench", min_value=0.0, value=225.0 if is_lbs else 100.0, step=lift_step) 
