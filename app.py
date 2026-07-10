@@ -13,8 +13,13 @@ def load_data():
     # Read the compressed Parquet dataset
     df = pd.read_parquet('powerlifting_data.parquet', columns=cols)
     
-    # Drop rows where total or bodyweight is missing
-    df = df.dropna(subset=['TotalKg', 'Sex', 'Equipment', 'BodyweightKg'])
+    # Drop rows where total, bodyweight, or ANY of the three lifts are missing
+    # This guarantees we are only looking at Full Power (SBD) competitors!
+    df = df.dropna(subset=[
+        'TotalKg', 'Sex', 'Equipment', 'BodyweightKg', 
+        'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg'
+    ])
+    
     return df
 
 df = load_data()
