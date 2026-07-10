@@ -28,54 +28,44 @@ st.sidebar.header("1. Your Stats")
 unit = st.sidebar.radio(
     "Preferred Unit", ["lbs", "kg"],
     horizontal=True
-    )
+)
 is_lbs = unit == "lbs"
 
-# 3. SIDEBAR: USER INPUTS (Dynamic defaults based on unit)
-user_sex = st.sidebar.selectbox(
-    "Sex", 
-    ["M", "F", "Mx"]
-    )
+# --- ONE MASTER FORM FOR ALL SETTINGS ---
+with st.sidebar.form("main_calculator_form"):
+    
+    # 3. USER INPUTS
+    user_sex = st.selectbox("Sex", ["M", "F", "Mx"]) 
+    user_bw = st.number_input(f"Bodyweight ({unit})", min_value=0.0, value=165.0 if is_lbs else 75.0, step=1.0)
+    
+    st.subheader(f"Your 1RMs ({unit})")
+    lift_step = 5.0 if is_lbs else 2.5 
+    sq = st.number_input(f"Squat", min_value=0.0, value=315.0 if is_lbs else 140.0, step=lift_step) 
+    bp = st.number_input(f"Bench", min_value=0.0, value=225.0 if is_lbs else 100.0, step=lift_step) 
+    dl = st.number_input(f"Deadlift", min_value=0.0, value=405.0 if is_lbs else 180.0, step=lift_step) 
 
-user_bw = st.sidebar.number_input(
-    f"Bodyweight ({unit})", 
-    min_value=0.0, 
-    value=165.0 if is_lbs else 75.0, 
-    step=1.0
-    )
+    st.markdown("---")
+    
+    # 4. COMPARISON FILTERS
+    st.subheader("2. Comparison Filters")
+    equipment = st.selectbox("Equipment", ["Raw", "Wraps", "Single-ply", "Multi-ply", "All"])
+    tested = st.selectbox("Drug Tested?", ["All", "Tested Only"])
+    
+    top_feds = df['Federation'].value_counts().index.tolist()
+    federation = st.selectbox("Federation", ["All"] + top_feds)
 
-st.sidebar.subheader(f"Your 1RMs ({unit})")
+    st.markdown("---")
+    
+    # 5. GRAPH SETTINGS
+    st.subheader("3. Graph Settings")
+    compare_scope = st.radio("Compare Against:", ["My Weight Class", "All Weight Classes"], horizontal=True)
+    metric = st.radio("Scoring Metric:", ["Weight", "DOTS Score"], horizontal=True)
+    
+    # The crucial submit button
+    submitted = st.form_submit_button("Calculate My Rank")
 
-# Added step=5.0 for lifts, as weight is usually added in 5lb/2.5kg increments
-lift_step = 5.0 if is_lbs else 2.5
-
-sq = st.sidebar.number_input(
-    f"Squat", 
-    min_value=0.0, 
-    value=315.0 if is_lbs else 140.0, 
-    step=lift_step
-    )
-
-bp = st.sidebar.number_input(
-    f"Bench", 
-    min_value=0.0, 
-    value=225.0 if is_lbs else 100.0, 
-    step=lift_step
-    )
-
-dl = st.sidebar.number_input(
-    f"Deadlift", 
-    min_value=0.0, 
-    value=405.0 if is_lbs else 180.0, 
-    step=lift_step
-    )
-
-user_total = sq + bp + dl
-
-st.sidebar.markdown(f"**Your Total:** {user_total} {unit}")
-
-# --- BACKEND CONVERSION ---
-# Convert user inputs to KG so we can search the database
+# --- BACKEND CONVERSION & STATS DISPLAY ---
+user_total = sq + bp + dl 
 user_bw_kg = user_bw / 2.20462262 if is_lbs else user_bw
 user_total_kg = user_total / 2.20462262 if is_lbs else user_total
 
@@ -88,42 +78,16 @@ def calculate_dots(bw, total, sex):
         a, b, c, d, e = -307.75076, 24.0900756, -0.1918759221, 0.0007391293, -0.000001093
     
     denominator = a + b * bw + c * (bw**2) + d * (bw**3) + e * (bw**4)
-    return (total * 500) / denominator
+    return (total * 500) / denominator if denominator != 0 else 0
 
 user_dots = calculate_dots(user_bw_kg, user_total_kg, user_sex)
+
+# Display the user's generated stats cleanly below the form
+st.sidebar.markdown(f"**Your Total:** {user_total} {unit}")
 st.sidebar.markdown(f"**Your DOTS Score:** {user_dots:.2f}")
 
-# 4. SIDEBAR: COMPARISON FILTERS
-st.sidebar.header("2. Comparison Filters")
-equipment = st.sidebar.selectbox("Equipment", ["Raw", "Wraps", "Single-ply", "Multi-ply", "All"])
-tested = st.sidebar.selectbox("Drug Tested?", ["All", "Tested Only"])
-
-# --- DYNAMIC FEDERATION MENU ---
-# First, figure out if we only want tested lifters
-if tested == "Tested Only":
-    fed_subset = df[df['Tested'] == 'Yes']
-else:
-    fed_subset = df
-
-# Now, get federations from that specific subset
-top_feds = fed_subset['Federation'].value_counts().index.tolist()
-federation = st.sidebar.selectbox("Federation", ["All"] + top_feds)
-
-
-st.sidebar.header("3. Graph Settings")
-compare_scope = st.sidebar.radio(
-    "Compare Against:", 
-    ["My Weight Class", "All Weight Classes"],
-    horizontal=True
-)
-metric = st.sidebar.radio(
-    "Scoring Metric:", 
-    ["Weight", "DOTS Score"],
-    horizontal=True
-)
-
 # Force extra space at the bottom of the sidebar
-st.sidebar.markdown("<br><br><br><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 
 # 5. FILTERING LOGIC
 mask = (df['Sex'] == user_sex)
