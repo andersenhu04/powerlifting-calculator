@@ -6,25 +6,34 @@ from scipy.stats import gaussian_kde
 
 @st.cache_data
 def load_data():
-    # Only load required columns to prevent RAM crashes
+    # 1. Load the parquet file using pyarrow directly
+    # This is more memory-efficient than reading the whole thing into pandas first
+    import pyarrow.parquet as pq
+    
+    # Read only the columns we absolutely need
     cols = ['Sex', 'Equipment', 'BodyweightKg', 'Best3SquatKg', 
             'Best3BenchKg', 'Best3DeadliftKg', 'TotalKg', 'Federation', 'Tested', 'Dots']
     
-    # Read the compressed Parquet dataset
-    df = pd.read_parquet('powerlifting_data.parquet', columns=cols)
+    # Load as a PyArrow Table first
+    table = pq.read_table('powerlifting_data.parquet', columns=cols)
     
-    # Drop rows where total, bodyweight, or ANY of the three lifts are missing
+    # Convert to Pandas
+    df = table.to_pandas()
+    
+    # Free up memory immediately
+    del table
+    
+    # 2. Drop rows BEFORE doing any type conversions
     df = df.dropna(subset=[
         'TotalKg', 'Sex', 'Equipment', 'BodyweightKg', 
         'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg'
     ])
     
-    # --- THE ULTIMATE MEMORY FIX ---
-    # 1. Convert text columns to 'category' (Shrinks text memory by ~85%)
+    # 3. Aggressive Memory Optimization
+    # Converting to 'category' and 'float32' as discussed
     for col in ['Sex', 'Equipment', 'Federation', 'Tested']:
         df[col] = df[col].astype('category')
         
-    # 2. Downcast 64-bit floats to 32-bit (Shrinks number memory by 50%)
     float_cols = ['BodyweightKg', 'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg', 'TotalKg', 'Dots']
     for col in float_cols:
         df[col] = df[col].astype('float32')
