@@ -149,7 +149,8 @@ mask &= (df['BodyweightKg'] > lower_kg) & (df['BodyweightKg'] <= upper_kg)
 filtered_df = df[mask]
 
 # --- SET THE ACTIVE DATASET BASED ON TOGGLE ---
-active_df = base_filtered_df.copy() if compare_scope == "All Weight Classes" else filtered_df.copy()
+# NOTE: Removed .copy() here to save RAM!
+active_df = base_filtered_df if compare_scope == "All Weight Classes" else filtered_df
 
 # 6. CALCULATE & DISPLAY PERCENTILE
 st.divider()
@@ -161,9 +162,32 @@ else:
     if metric == "DOTS Score":
         percentile = (active_df['Dots'] < user_dots).mean() * 100
         metric_label = "DOTS points"
+        
+        # Calculate DOTS columns on the fly for the active_df to ensure accuracy
+        df_multiplier = active_df['Dots'] / active_df['TotalKg']
+        # Build plot data dynamically to avoid SettingWithCopy warnings
+        plot_data = pd.DataFrame({
+            'Dots': active_df['Dots'],
+            'SquatDots': active_df['Best3SquatKg'] * df_multiplier,
+            'BenchDots': active_df['Best3BenchKg'] * df_multiplier,
+            'DeadliftDots': active_df['Best3DeadliftKg'] * df_multiplier
+        })
+        user_sq_val = (sq / 2.20462 if is_lbs else sq) * (user_dots / user_total_kg if user_total_kg > 0 else 0)
+        user_bp_val = (bp / 2.20462 if is_lbs else bp) * (user_dots / user_total_kg if user_total_kg > 0 else 0)
+        user_dl_val = (dl / 2.20462 if is_lbs else dl) * (user_dots / user_total_kg if user_total_kg > 0 else 0)
+        user_total_val = user_dots
+        cols_to_plot = ['Dots', 'SquatDots', 'BenchDots', 'DeadliftDots']
+        active_unit = "DOTS"
     else:
         percentile = (active_df['TotalKg'] < user_total_kg).mean() * 100
         metric_label = unit
+        
+        # Assign plot data mapped to Raw Weight
+        multiplier = 2.20462 if is_lbs else 1.0
+        plot_data = active_df[['TotalKg', 'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg']] * multiplier
+        user_sq_val, user_bp_val, user_dl_val, user_total_val = sq, bp, dl, user_total
+        cols_to_plot = ['TotalKg', 'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg']
+        active_unit = unit
 
     st.subheader("Your Ranking")
     st.metric(
@@ -193,11 +217,6 @@ else:
     st.divider()
     st.subheader("Interactive Distributions")
     st.markdown("Hover over the curves to see percentile stats at any weight. The dashed line is you.")
-
-    if is_lbs:
-        plot_df = filtered_df[['TotalKg', 'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg']] * 2.20462
-    else:
-        plot_df = filtered_df[['TotalKg', 'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg']]
         
     def draw_interactive_curve(clean_data, user_val, lift_name, color, unit_label=unit):
         clean_data = clean_data.dropna()
@@ -205,8 +224,6 @@ else:
             return None
             
         # --- THE SPEED FIX: SUBSAMPLING ---
-        # If the dataset is massive, grab a random 5,000 rows for the KDE drawing.
-        # This stops the server from crashing while keeping the curve looking perfect.
         if len(clean_data) > 5000:
             kde_data = clean_data.sample(n=5000, random_state=42)
         else:
@@ -222,7 +239,7 @@ else:
         x_vals = np.linspace(clean_data.min(), clean_data.max(), 200)
         y_vals = kde(x_vals)
         
-        # Calculate exact percentiles for the hover menu using the FULL data (Keeps stats 100% accurate!)
+        # Calculate exact percentiles for the hover menu using the FULL data
         sorted_data = np.sort(clean_data)
         percentiles = np.searchsorted(sorted_data, x_vals) / len(sorted_data) * 100
         
@@ -271,55 +288,19 @@ else:
             xaxis=dict(showgrid=True, gridcolor='lightgrey')
         )
         return fig
-    
-    # Calculate DOTS for individual lifts if requested
-    if metric == "DOTS Score":
-        active_unit = "DOTS"
-        
-        # Calculate dataset's DOTS multiplier (DOTS / TotalKg)
-        df_multiplier = active_df['Dots'] / active_df['TotalKg']
-        active_df['SquatDots'] = active_df['Best3SquatKg'] * df_multiplier
-        active_df['BenchDots'] = active_df['Best3BenchKg'] * df_multiplier
-        active_df['DeadliftDots'] = active_df['Best3DeadliftKg'] * df_multiplier
-        
-        # Calculate user's individual DOTS
-        user_sq_kg = sq / 2.20462 if is_lbs else sq
-        user_bp_kg = bp / 2.20462 if is_lbs else bp
-        user_dl_kg = dl / 2.20462 if is_lbs else dl
-        
-        user_multiplier = user_dots / user_total_kg if user_total_kg > 0 else 0
-        user_sq_val = user_sq_kg * user_multiplier
-        user_bp_val = user_bp_kg * user_multiplier
-        user_dl_val = user_dl_kg * user_multiplier
-        user_total_val = user_dots
-        
-        # Assign plot data mapped to DOTS
-        plot_data = active_df[['Dots', 'SquatDots', 'BenchDots', 'DeadliftDots']]
-        cols_to_plot = ['Dots', 'SquatDots', 'BenchDots', 'DeadliftDots']
-        
-    else:
-        active_unit = unit
-        user_sq_val, user_bp_val, user_dl_val, user_total_val = sq, bp, dl, user_total
-        
-        # Assign plot data mapped to Raw Weight
-        if is_lbs:
-            plot_data = active_df[['TotalKg', 'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg']] * 2.20462
-        else:
-            plot_data = active_df[['TotalKg', 'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg']]
-            
-        cols_to_plot = ['TotalKg', 'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg']
 
-    # Draw the 4 standard tabs (removed the 5th DOTS tab)
+    # Draw the 4 standard tabs
     tab1, tab2, tab3, tab4 = st.tabs(["Total", "Squat", "Bench", "Deadlift"])
     
+    # Fixed use_container_width warnings by replacing with width='stretch'
     with tab1:
-        st.plotly_chart(draw_interactive_curve(plot_data[cols_to_plot[0]], user_total_val, "Overall Total", "#9b59b6", active_unit), use_container_width=True)
+        st.plotly_chart(draw_interactive_curve(plot_data[cols_to_plot[0]], user_total_val, "Overall Total", "#9b59b6", active_unit), width='stretch')
     with tab2:
-        st.plotly_chart(draw_interactive_curve(plot_data[cols_to_plot[1]], user_sq_val, "Squat", "#e74c3c", active_unit), use_container_width=True)
+        st.plotly_chart(draw_interactive_curve(plot_data[cols_to_plot[1]], user_sq_val, "Squat", "#e74c3c", active_unit), width='stretch')
     with tab3:
-        st.plotly_chart(draw_interactive_curve(plot_data[cols_to_plot[2]], user_bp_val, "Bench Press", "#3498db", active_unit), use_container_width=True)
+        st.plotly_chart(draw_interactive_curve(plot_data[cols_to_plot[2]], user_bp_val, "Bench Press", "#3498db", active_unit), width='stretch')
     with tab4:
-        st.plotly_chart(draw_interactive_curve(plot_data[cols_to_plot[3]], user_dl_val, "Deadlift", "#2ecc71", active_unit), use_container_width=True)
+        st.plotly_chart(draw_interactive_curve(plot_data[cols_to_plot[3]], user_dl_val, "Deadlift", "#2ecc71", active_unit), width='stretch')
 
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("This page uses data from the OpenPowerlifting project, https://www.openpowerlifting.org. You may download a copy of the data at https://data.openpowerlifting.org.")
